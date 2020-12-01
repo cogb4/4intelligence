@@ -1,0 +1,204 @@
+---
+title: "Case 1 - 4intelligence"
+author: "Catarina Oliveira Guimarães Barcelos"
+date: "01/12/2020"
+output: html_document
+---
+
+```{r Clear all variables in workspace}
+
+rm(list=ls())
+
+```
+* Install and load the necessaries packages for doing the exercice
+```{r library utilizada}
+if(!require(fpp2)){install.packages("fpp2", dependencies = TRUE); library(fpp2)}
+if(!require(forecast)){install.packages("forecast", dependencies = TRUE); library(forecast)}
+if(!require(ggplot2)){install.packages("ggplot2", dependencies = TRUE); library(ggplot2)}
+if(!require(dplyr)){install.packages("dplyr", dependencies = TRUE); library(dplyr)}
+if(!require(readxl)){install.packages("readxl", dependencies = TRUE); library(readxl)}
+if(!require(plotly)){install.packages("plotly", dependencies = TRUE); library(plotly)}
+if(!require(purrr)){install.packages("purrr", dependencies = TRUE); library(purrr)}
+if(!require(cluster)){install.packages("cluster", dependencies = TRUE); library(cluster)}
+```
+
+* Indicate the directory
+```{r Diretório}
+setwd("C:/Users/barce/OneDrive/Ambiente de Trabalho/Challenge_4i/")
+```
+* Check if R is using the correct paste
+```{r Check}
+getwd()
+```
+
+* Load and view the data
+```{r Load and view the data}
+data <- read.csv("TFP.csv")
+View(data)
+```
+
+# Make an exploratory data analysis;
+
+## Preliminary Analysis - See the data of the exercice in a graph 
+
+* The Graph 1 below shows the national price constants for the United States, Canada and Mexico between 1950 and 2011, in which the price for 2005 represents the currency in the graph (equal to 1). Each country have strong trends. It is interesting to investigate some transformations. For Canada, the curve is relatively stable over the period, with growth between the 1960s and 1970s, and between the 1990s and 2000s, which represented the periods of the oil crisis and the global fiscal crisis, respectively. In Mexico, prices have risen sharply between the 1950s and the mid-1970s, possibly due to increased population consumption and some global crises in the middle of this path. After that period, the price remains falling. And, finally, in the United States, the national price constant is increasing throughout practically its entire trajectory, becoming more accentuated from the 1980s.
+```{r First Graph}
+data %>% group_by(isocode) %>% ggplot(aes(year,rtfpna,color= isocode)) + 
+  geom_line()+ ggtitle("Time Plot of constant national prices for USA, CAN and MEX")+
+  ylab("Constant national prices: 2005 = 1")+xlab("Year")
+```
+
+# Separate data per each isocode in order to work individually in the three countries
+```{r Organize the data}
+mex <- data %>% filter(isocode=='MEX')# %>% select(-isocode)
+can <- data %>% filter(isocode=='CAN') #%>% select(-isocode)
+usa <- data %>% filter(isocode=='USA') #%>% select(-isocode)
+```
+# Declare each data per country as time series data
+```{r time series data}
+m <- ts(mex[,3],start= c(1950,1), frequency = 1)
+c <- ts(can[,3],start= c(1950,1), frequency = 1)
+u <- ts(usa[,3],start= c(1950,1), frequency = 1)
+```
+### ACF and PACF
+
+* As we are analyzing time series, we must also observe the shape of its curves, if it has a unit root through autocorrelation (ACF), and also observe if there is a correlation between the residues (PACF). The ACF shows whether the present value of the series is correlated with the past value and the PACF observes whether in addition to what we detected with the ACF, there is some other remnant that can cause multicollinearity. Notice that there is a lot of persistence in the three countries because most of the lags are found to be relatively significant in ACF. So, before proceeding with the forecast of 10 years of the series, we have to deal with these multicollinearity first.
+```{r ACF and PACF}
+acf(m, main = "ACF for the TFP at constant national prices in Mexico")
+pacf(m, main = "PACF for the TFP at constant national prices in Mexico")
+
+acf(c, main = "ACF for the TFP at constant national prices in Canada")
+pacf(c, main = "PACF for the TFP at constant national prices in Canada")
+
+acf(u, main = "ACF for the TFP at constant national prices in USA")
+pacf(u, main = "PACF for the TFP at constant national prices in USA")
+```
+
+# Forecast 10 years of the series
+
+* In order to face the problem of multicollinearity, we will observe 3 efficient methods: time series benchmark test, ETS and ARIMA presented below. The model chosen for each country was the one with the least error.
+
+### Time Series Benchmark test
+
+* Take the first difference of the data to remove trend
+```{r diff}
+dm <- diff(m)
+dc <- diff(c)
+du <- diff(u)
+```
+
+* Time plot of the difference data
+
+* Observing the first differences in each country, we can see that for all the three countries, the residues seem more random than that observed in Graph 1 once we remove the trend. 
+
+### Mexico
+```{r bmmex1}
+autoplot(dm)+ 
+  ggtitle("Time Plot of constant national prices for MEX")+
+  ylab("Constant national prices: 2005 = 1")+xlab("Year")
+```
+### Canada
+```{r bmcad1}
+autoplot(dc)+ 
+  ggtitle("Time Plot of constant national prices for CAN")+
+  ylab("Constant national prices: 2005 = 1")+xlab("Year")
+```
+### USA
+```{r bmusa1}
+autoplot(du)+ 
+  ggtitle("Time Plot of constant national prices for USA")+
+  ylab("Constant national prices: 2005 = 1")+xlab("Year")
+```
+
+### Benchmark
+```{r bm2}
+fitm <- snaive(dm)  # Residual = 0.043
+print(summary(fitm))
+checkresiduals(fitm)
+
+fitc <- snaive(dc) # Residual = 0.0239
+print(summary(fitc))
+checkresiduals(fitc)
+
+fitu <- snaive(du) # Residual = 0.0158
+print(summary(fitu))
+checkresiduals(fitu)
+```
+
+### Fit ETS models
+```{r Fit ETS models}
+fit_etsm <- ets(m)  # Residual = 0.0298
+print(summary(fit_etsm))
+checkresiduals(fit_etsm)
+
+
+fit_etsc <- ets(c)  # Residual = 0.0192
+print(summary(fit_etsc))
+checkresiduals(fit_etsc)
+
+fit_etsu <- ets(u)  # Residual = 0.0116
+print(summary(fit_etsu))
+checkresiduals(fit_etsu)
+```
+### Fit on ARIMA model
+```{r Fit on ARIMA model}
+fit_arimam <- auto.arima(m, stepwise= FALSE, approximation=FALSE, trace=TRUE) # Residual = 0.03416138
+print(summary(fit_arimam))
+checkresiduals(fit_arimam)
+sqrt(0.001167)
+accuracy(fit_arimam)
+
+
+fit_arimac <- auto.arima(c, stepwise= FALSE, approximation=FALSE, trace=TRUE) # Residual = 0.01783536
+print(summary(fit_arimac))
+checkresiduals(fit_arimac)
+sqrt(0.0003181)
+
+fit_arimau <- auto.arima(u, stepwise= FALSE, approximation=FALSE, trace=TRUE) # Residual = 0.01136222
+print(summary(fit_arimau))
+checkresiduals(fit_arimau)
+sqrt(0.0001291)
+```
+# FORECAST
+
+### Mexico - ETS
+```{r Mexico - ETS}
+fcstm <- forecast(fit_etsm, h=10) 
+autoplot(fcstm)
+autoplot(fcstm, include=30)
+print(summary(fcstm))
+```
+### Canada - ARIMA
+```{r Canada - ARIMA}
+fcstc <- forecast(fit_arimac, h=10) 
+autoplot(fcstc)
+autoplot(fcstc, include=30)
+print(summary(fcstc))
+```
+### USA - ARIMA
+```{r USA - ARIMA}
+fcstu <- forecast(fit_arimau, h=10) 
+autoplot(fcstu)
+autoplot(fcstu, include=30)
+print(summary(fcstu))
+```
+* As shown above, for Mexico, the best model was the ETS (M, Ad, N) which has a stable and slightly decreasing trend for the coming years. For Canada, ARIMA showed a lower value for its waste and, the trend for the coming years, similarly to Mexico, shows a downward trend, however, a little more accentuated. Finally, in the USA, ARIMA was also the model that best fit this country, and, unlike the one analyzed in the previous two, this country has an increasing trend in TFP.
+
+### Plotando os gráficos lado a lado para comparação
+```{r Plotando os gráficos}
+par(mfrow= c(1,3))
+plot(fcstm, main = 'Mexico  10 Years Forecast')
+plot(fcstc, main = 'Canada  10 Years Forecast')
+plot(fcstu, main = 'USA  10 Years Forecast')
+```
+ 
+* Besides these analysis, there are other variables that could explain the TFP series as we could see in this link: https://cran.r-project.org/web/packages/pwt8/pwt8.pdf. Observing the original list of variables, for explaining the TFP behavior, we have to focous on productivity. Productivity is related to GPD, so we have to find variabeles that are related with GPD. So, it would be helpful:
+
+* hc - Index of human capital per person, based on years of schooling (Barro and Lee 2013) and returns to education (Psacharopoulos 1994).
+
+* rkna - Capital stock at constant 2005 national prices (in million 2005 USD).
+
+* csh_x - Share of merchandise exports at current PPPs.
+
+* csh_m - Share of merchandise imports at current PPPs.
+

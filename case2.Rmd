@@ -1,0 +1,587 @@
+---
+title: "Case 2 - 4intelligence"
+author: "Catarina Oliveira Guimarães Barcelos"
+date: "01/12/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+* Clear all variables in workspace
+
+```{r Clear all variables in workspace}
+
+rm(list=ls())
+
+```
+* Install and load the necessaries packages for doing the exercice
+```{r library utilizada}
+if(!require(fpp2)){install.packages("fpp2", dependencies = TRUE); library(fpp2)}
+if(!require(forecast)){install.packages("forecast", dependencies = TRUE); library(forecast)}
+if(!require(ggplot2)){install.packages("ggplot2", dependencies = TRUE); library(ggplot2)}
+if(!require(dplyr)){install.packages("dplyr", dependencies = TRUE); library(dplyr, warn.conflicts = FALSE)}
+if(!require(readxl)){install.packages("readxl", dependencies = TRUE); library(readxl)}
+if(!require(tidyverse)){install.packages("tidyverse", dependencies = TRUE); library(tidyverse)}
+if(!require(lubridate)){install.packages("lubridate", dependencies = TRUE); library(lubridate)}
+if(!require(magrittr)){install.packages("magrittr", dependencies = TRUE); library(magrittr)}
+if(!require(urca)){install.packages("urca", dependencies = TRUE); library(urca)}
+if(!require(vars)){install.packages("vars", dependencies = TRUE); library(vars)}
+if(!require(tseries)){install.packages("tseries", dependencies = TRUE); library(tseries)}
+if(!require(mFilter)){install.packages("mFilter", dependencies = TRUE); library(mFilter)}
+if(!require(plyr)){install.packages("plyr", dependencies = TRUE); library(plyr)}
+if(!require(readxl)){install.packages("readxl", dependencies = TRUE); library(readxl)}
+if(!require(readxl)){install.packages("readxl", dependencies = TRUE); library(readxl)}
+```
+
+* Indicate the directory
+```{r Diretório}
+setwd("C:/Users/barce/OneDrive/Ambiente de Trabalho/Challenge_4i/")
+```
+* Check if R is using the correct paste
+```{r Check}
+getwd()
+```
+* Load and view the data. Extracting data from csv and encoding to Latin 3. Date is treated and inserted day, month and year.
+
+```{r Open the data}
+agro <- read.csv('data_comexstat.csv', encoding = "Latin3")
+agro <- agro %>%  mutate(date = as.Date(date)) %>% 
+  mutate( date = ymd(parse_date_time(date, 
+                                   orders = c("ymd", "dmy", "mdy"))) )%>%
+  mutate(date = ymd(date),
+         dia = day(date),
+         mes = month(date),
+         ano = year(date))
+
+str(agro)
+levels(agro$product)
+summary(agro)
+unique(agro$product)
+
+
+View(agro)
+```
+
+## 1- Show the evolution of total monthly and total annual exports from Brazil (all states and to everywhere) of 'soybeans', 'soybean oil' and 'soybean meal'
+
+* All three products show an increasing trend, starting in the year 2000, the curve increasing from 2003. The three curves also had a slight fall between the years 2014 and 2016, the period of the Brazilian crisis. The soybean meal has a slightly increasing curve, however, since 2006, it has had a higher and relatively stable rise. Soybean oil is a product that has not undergone major changes during this period, with a peak in 2008. Soybeans grew exponentially in Brazil mainly from 2005, with a peak in exports in 2018, above 30 billion. dollars. Its curve differs a lot in relation to the other products.
+
+```{r  }
+agro$usdbil <- agro$usd/1000000000
+
+detach(package:plyr)
+```
+### Total Annual
+```{r Graphs Agro Anual }
+agro_expor_ano <- agro %>% filter (product %in% c ("soybeans", "soybean_oil", "soybean_meal"), type %in% c ("Export")) %>% 
+  group_by(ano, product) %>% 
+  summarize("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil)) 
+agro_expor_ano %>% head(10)
+
+
+agro_expor_ano %>% 
+  ggplot(aes(y=usdbil, x=ano, color = product)) + ggtitle("Exportation per Year by Product (Billions of US$) ") + geom_line() + geom_point(size = 1)+ylab("Billions of US$")+xlab("Year")
+
+```
+
+### Total Monthly
+
+* In order to analyze the three products on a monthly basis, it was necessary to separate the charts into 5 periods: between 1997 to 2000, 2001 to 2005, 2006 to 2010, 2011 to 2015 and 2015 to 2019. This separation was necessary for him to be able to clearly observe the differences in product collection per month. In general, in addition to the increasing factor of production analyzed in the previous graph, the seasonality presented by production per month does not vary significantly between 1997 and 2019. Soybeans is the product that most presents this seasonality per month, between November to February, this product has little export compared to the peak months, between April and July. The other two products showed seasonality similar to soybeans, however, marginally, the difference between the peaks and the valleys is not so sharp.
+
+### 97-00
+
+```{r Graphs Agro Monthly 97-00}
+agro_expor_mes_9700 <- agro %>% filter (product %in% c ("soybeans", "soybean_oil", "soybean_meal"), type %in% c ("Export"), date < "2001-01-01") %>% 
+group_by(date, product) %>% 
+summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil))
+
+agro_expor_mes_9700 %>% ggplot(aes(y=usdbil, x=date, color = product)) + 
+  ggtitle("Exportation per Year by Product (Billions of US$)") + 
+  geom_line() + 
+  geom_point(size = 1)+
+  ylab("Billions of US$")+
+  xlab("Year")
+```
+
+### 01-05
+
+```{r Graphs Agro Monthly 01-05}
+agro_expor_mes_0105 <- agro %>% filter (product %in% c ("soybeans", "soybean_oil", "soybean_meal"), type %in% c ("Export"), date > "2000-12-01" & date < "2006-01-01") %>% 
+group_by(date ,product) %>% 
+summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil))
+
+agro_expor_mes_0105 %>% ggplot(aes(y=usdbil, x=date, color = product)) + 
+  ggtitle("Exportation per Year by Product (Billions of US$)") + 
+  geom_line() + 
+  geom_point(size = 1)+
+  ylab("Billions of US$")+
+  xlab("Year")
+```
+
+### 06-10
+
+```{r Graphs Agro Monthly 06-10}
+agro_expor_mes_0105 <- agro %>% filter (product %in% c ("soybeans", "soybean_oil", "soybean_meal"), type %in% c ("Export"), date > "2005-12-01" & date < "2011-01-01") %>% 
+group_by(date ,product) %>% 
+summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil))
+
+agro_expor_mes_0105 %>% ggplot(aes(y=usdbil, x=date, color = product)) + 
+  ggtitle("Exportation per Year by Product (Billions of US$)") + 
+  geom_line() + 
+  geom_point(size = 1)+
+  ylab("Billions of US$")+
+  xlab("Year")
+```
+
+###  11-15
+
+```{r Graphs Agro Monthly 11-15}
+agro_expor_mes_0105 <- agro %>% filter (product %in% c ("soybeans", "soybean_oil", "soybean_meal"), type %in% c ("Export"), date > "2010-12-31" & date < "2016-01-01") %>% 
+group_by(date ,product) %>% 
+summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil))
+
+agro_expor_mes_0105 %>% ggplot(aes(y=usdbil, x=date, color = product)) + 
+  ggtitle("Exportation per Year by Product (Billions of US$)") + 
+  geom_line() + 
+  geom_point(size = 1)+
+  ylab("Billions of US$")+
+  xlab("Year")
+```
+
+###  16-20
+
+```{r Graphs Agro Monthly 16-20}
+agro_expor_mes_0105 <- agro %>% filter (product %in% c ("soybeans", "soybean_oil", "soybean_meal"), type %in% c ("Export"), date > "2015-12-01") %>% 
+group_by(date ,product) %>% 
+summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil))
+
+agro_expor_mes_0105 %>% ggplot(aes(y=usdbil, x=date, color = product)) + 
+  ggtitle("Exportation per Year by Product (Billions of US$)") + 
+  geom_line() + 
+  geom_point(size = 1)+
+  ylab("Billions of US$")+
+  xlab("Year")
+```
+
+
+## 2- What are the 3 most important products exported by Brazil in the last 5 years?
+
+* As we saw earlier, the 3 main products for Brazilian Exportation in the last 5 years were: soybeans, sugar and soybean meal. 
+
+```{r Graphs - Bar top 3 main products for Brazilian Exportation}
+agro_top3 <- agro %>%filter ( type %in% c ("Export"), date > "2013-12-01") %>% 
+  group_by(product) %>% 
+  summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil)) 
+agro_top3 %>% head(3)
+
+
+agro_top3 %>% ggplot(aes(x= product, y=usdbil, color = product)) + ggtitle("Exportation (US$) by Product") + geom_col()
+
+```
+
+## 3- What are the main routes through which Brazil have been exporting 'corn' in the last few years? Are there differences in the relative importancem of routes depending on the product? 
+
+* The main exporting route is through sea, once the main buyers of the brazilian commodity are from other continets and it is the cheapest way to conclude the trade. Although it is a slow transport, sea transport is widely used to transport cargo, since it supports a large quantity and variety of products. This for a relatively low cost, in relation to other means of transport, for example, by air. Due to that, we can not see any differences in the relative importance of routes between the products.
+
+```{r Analysis for the main routes for exporting corn }
+agro_expor_corn <- agro %>% filter (product %in% c ("corn"),type %in% c("Export")) %>% 
+  group_by( route) %>% 
+  summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil)) %>% 
+  view()
+
+agro_expor_corn %>% 
+  ggplot(aes( y= usdbil, x = route , color = route)) + 
+  geom_col() 
+
+
+agro_expor_soybeans <- agro %>% filter (product %in% c ("soybeans"),type %in% c("Export")) %>% 
+  group_by(route) %>% 
+  summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil)) %>% 
+  view()
+
+agro_expor_soybeans %>% 
+  ggplot(aes( y= usdbil, x = route , color = route)) + 
+  geom_col() 
+
+agro_expor_soybean_meal <- agro %>% filter (product %in% c ("soybean_meal"),type %in% c("Export")) %>% 
+  group_by( route) %>% 
+  summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil)) %>% 
+  view()
+
+agro_expor_soybean_meal %>% 
+  ggplot(aes( y= usdbil, x = route , color = route)) + 
+  geom_col() 
+
+agro_expor_soybean_oil <- agro %>% filter (product %in% c ("soybean_oil"),type %in% c("Export")) %>% 
+  group_by( route) %>% 
+  summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil)) %>% 
+  view()
+
+agro_expor_soybean_oil %>% 
+  ggplot(aes( y= usdbil, x = route , color = route)) + 
+  geom_col() 
+
+agro_expor_wheat  <- agro %>% filter (product %in% c ("wheat"),type %in% c("Export")) %>% 
+  group_by( route) %>% 
+  summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil)) %>% 
+  view()
+
+agro_expor_wheat %>% 
+  ggplot(aes( y= usdbil, x = route , color = route)) + 
+  geom_col() 
+
+agro_expor_sugar  <- agro %>% filter (product %in% c ("sugar"),type %in% c("Export")) %>% 
+  group_by( route) %>% 
+  summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil)) %>% 
+  view()
+
+agro_expor_sugar %>% 
+  ggplot(aes( y= usdbil, x = route , color = route)) + 
+  geom_col() 
+
+```
+
+## 4-Which countries have been the most important trade partners for Brazil in terms of 'corn' and 'sugar' in the last 3 years?
+
+* In order to answer this question, we divided the analysis with exportation and importation. The results below show that depending how deep the necessity of the analysis (Improting or exporting), we should look differently. Iran, Bangladesh and Egypt are the top 3 buyers of sugar and corn (cash value), the same is true to top 3 countries that Brazil exports to. If we look this data specifically for each commodity, we find that the top 3 corn buyers are Iran, Japan and Vietnam and the top 3 sugar buyers are Algeria, Bangladesh and India. For importation, we observe the same differences, though.The top 3 countries that Brazil most import are Paraguay, Argentina and United States, but when we split the data though the products, we will find that for corn, Paraguay, Argentina and USA are the top 3 and, for sugar, are USA, Chile and Argentina. 
+
+###Exportation and Importation
+
+```{r Analysis for the most important trade partners for Brazil in terms of corn and sugar - Exportation and Importation}
+agro_top_country_export_import <- agro %>%filter (product %in% c ("corn","sugar"), date > '2016-12-01') %>% 
+  group_by(country) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd)) %>% 
+  arrange(desc(usd))
+
+agro_top_country_export_import %>% head(3)
+```
+
+###Exportation overall 
+
+```{r Analysis for the most important trade partners for Brazil in terms of corn and sugar - Exportation overall}
+agro_top_country_export_overall <- agro %>%filter (product %in% c ("corn","sugar"), type %in% c ("Export"), date > '2016-12-01') %>% 
+  group_by(country) %>% 
+  summarise("tons" = sum(tons), "usdbil" = sum(usdbil)) %>% 
+  arrange(desc(usdbil))
+
+agro_top_country_export_overall %>% head(3)
+```
+
+###Exportation by product
+
+```{r Analysis for the most important trade partners for Brazil in terms of corn and sugar - Exportation by product}
+agro_top_country_export_product <- agro %>%filter (product %in% c ("corn","sugar"), type %in% c ("Export"), date > '2016-12-01') %>% 
+  group_by(country, product) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd))%>% 
+  arrange(desc(usd))
+
+agro_top_country_export_product %>% head(10)
+```
+
+###Importation overall 
+
+```{r Analysis for the most important trade partners for Brazil in terms of corn and sugar - Importation overall}
+agro_top_country_import_overall <- agro %>%filter (product %in% c ("corn",'sugar'), type %in% c ("Import"), date > '2016-12-01') %>% 
+  group_by(country) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd))%>% 
+  arrange(desc(usd)) 
+
+agro_top_country_import_overall %>% head(3)
+```
+
+### Importation by product 
+
+```{r Analysis for the most important trade partners for Brazil in terms of corn and sugar - Importation by product }
+agro_top_country_import_product <- agro %>%filter (product %in% c ("corn",'sugar'), date > '2017-01-1') %>% 
+  group_by(country, product) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd))%>% 
+  arrange(desc(usd)) 
+  
+agro_top_country_import_product %>% head(10)
+```
+
+## 5 - For each of the products in the dataset, show the 5 most important states in terms of exports 
+
+* As we could see and explain in the previous question, the results change from the perspective we observe. We can analyze the by the total amount (US$) exported, which we can rank the top 5 states, which is Mato Grosso, Paraná, São Paulo, Rio Grande do Sul and Goiás. If we split the data through each product, we can find another sequence of top states: corn (MT, PR, GO, MS, SP), soybean_meal(MT, PR, RS, GO, BA), soybean_oil (PR, RS, MT, SC, GO), soybeans(MT, PR, RS, GO, MS), sugar (SP, MG, PR, AL, MS) and wheat (RS, PR, SC, SP, MS).    
+
+###Exportation overall by state 
+```{r Analysis for the 5 most important states in terms of exports - Exportation overall by state}
+agro_state <- agro %>%filter (type %in% c ("Export")) %>% 
+  group_by(state) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd)) %>% 
+  arrange(desc(usd))
+
+agro_state %>% 
+  head(5)
+```
+###Exportation overall by state and corn 
+```{r Analysis for the 5 most important states in terms of exports - Exportation overall by state - Exportation overall by state and corn}
+agro_state_corn <- agro %>%filter (type %in% c ("Export"), product %in% c ("corn")) %>% 
+  group_by(state) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd)) %>% 
+  arrange(desc(usd))
+
+agro_state_corn %>% 
+  head(5)
+```
+###Exportation overall by state and soybean_meal 
+```{r Analysis for the 5 most important states in terms of exports - Exportation overall by state - Exportation overall by state and soybean_meal}
+agro_state_soybean_meal<- agro %>%filter (type %in% c ("Export"), product %in% c ("soybean_meal")) %>% 
+  group_by(state) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd)) %>% 
+  arrange(desc(usd))
+
+agro_state_soybean_meal %>% 
+  head(5)
+```
+
+###Exportation overall by state and soybean_oil
+```{r Analysis for the 5 most important states in terms of exports - Exportation overall by state - Exportation overall by state and soybean_oil}
+agro_state_soybean_oil<- agro %>%filter (type %in% c ("Export"), product %in% c ("soybean_oil")) %>% 
+  group_by(state) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd)) %>% 
+  arrange(desc(usd))
+
+agro_state_soybean_oil %>% 
+  head(5)
+```
+
+###Exportation overall by state and soybeans
+```{r Analysis for the 5 most important states in terms of exports - Exportation overall by state - Exportation overall by state and soybeans}
+agro_state_soybeans <- agro %>%filter (type %in% c ("Export"), product %in% c ("soybeans")) %>% 
+  group_by(state) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd)) %>% 
+  arrange(desc(usd))
+
+agro_state_soybeans %>% 
+  head(5)
+```
+###Exportation overall by state and sugar
+```{r Analysis for the 5 most important states in terms of exports - Exportation overall by state - Exportation overall by state and sugar}
+agro_state_sugar <- agro %>%filter (type %in% c ("Export"), product %in% c ("sugar")) %>% 
+  group_by(state) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd)) %>% 
+  arrange(desc(usd))
+
+agro_state_sugar %>% 
+  head(5)
+```
+###Exportation overall by state and wheat
+```{r Analysis for the 5 most important states in terms of exports - Exportation overall by state - Exportation overall by state and wheat}
+agro_state_wheat <- agro %>%filter (type %in% c ("Export"), product %in% c ("wheat")) %>% 
+  group_by(state) %>% 
+  summarise("tons" = sum(tons), "usd" = sum(usd)) %>% 
+  arrange(desc(usd))
+
+agro_state_wheat %>% 
+  head(5)
+```
+## 6- What should be the total brazilian soybeans, soybean_meal, and corn export forecasts, in tons, for the next 11 years (2020-2030)? We’re mostly interested in the annual forecast.
+
+* In order to answer this question and project these products, we believe that the best model to use is the Vector autoregression (VAR). However, it is a poor predictive model, and it is prudent to analyze it by the sign of its Granger coefficient. VAR is a statistical model used to capture the relationship between multiple quantities as they change over time. VAR is a type of stochastic process model. VAR models generalize the single-variable (univariate) autoregressive model by allowing for multivariate time series 
+* Keep only the soybeans, soybean_meal, and corn for exportation
+```{r Select the data}
+agro2 <- agro[agro$type=="Export",] 
+View(agro2)
+agro3 <- agro2[agro2$product %in% c ("soybeans","soybean_meal", "corn"),]
+View(agro3)
+```
+
+* Aggregate the database by year and product
+```{r Organize the data - part1}
+if(!require(plyr)){install.packages("plyr", dependencies = TRUE); library(plyr)}
+
+agro4 <- ddply(agro3, .(product, ano), summarize, tons=sum(tons), usd=sum(usd), usdbil=sum(usdbil))
+view(agro4)
+agro4 <- rename (agro4, c(ano="year"))
+
+covariates <- read_excel("covariates.xlsx")
+View(covariates)
+
+agro5 <- merge(agro4, covariates, by="year")
+view(agro5)
+
+```
+* Separate the databases by product
+```{r Organize the data - part2}
+agrosb <- agro5[agro5$product=="soybeans",]
+agroco <- agro5[agro5$product=="corn",]
+agrosm <- agro5[agro5$product=="soybean_meal",]
+
+```
+
+* Declare our time series variable
+```{r Declare our time series variable}
+tonstssb <- ts(agrosb$tons, start = c(1997), frequency = 1)
+price_soybeansts <- ts(agrosb$price_soybeans, start = c(1997), frequency = 1)
+  
+tonstsco <- ts(agroco$tons, start = c(1997), frequency = 1)
+price_cornts <- ts(agroco$price_corn, start = c(1997), frequency = 1)
+
+tonstssm <- ts(agrosm$tons, start = c(1997), frequency = 1)
+price_soybean_mealts <- ts(agrosm$price_soybean_meal, start = c(1997), frequency = 1)
+```
+* Taking the hiatus out of the gdp 
+
+* We made a more cautious model and took the hiatus and used only the global GDP in our model.
+```{r Taking the hiatus out of the gdp}
+
+fgdp_worldsb <- hpfilter(agrosb$gdp_world, freq = 14400)
+hgdp_worldsb <- fgdp_worldsb$cycle
+plot(hgdp_worldsb)
+
+fgdp_worldco <- hpfilter(agroco$gdp_world, freq = 14400)
+hgdp_worldco <- fgdp_worldco$cycle
+plot(hgdp_worldco)
+
+fgdp_worldsm <- hpfilter(agrosm$gdp_world, freq = 14400)
+hgdp_worldsm <- fgdp_worldsm$cycle
+plot(hgdp_worldsm)
+```
+
+* Determine the Persistence of the Model
+
+* Despite having multicollinearity in the 3 products, they were not as persistent as observed in the previous exercise.
+
+```{r ACF and PACF}
+acf(tonstssb, main = "ACF for the Exportation of soybeans", data= agrosb)
+pacf(tonstssb, main = "ACF for the Exportation of soybeans", data= agrosb)
+
+acf(tonstsco, main = "ACF for the Exportation of corn", data= agroco)
+pacf(tonstsco, main = "ACF for the Exportation of corn", data= agroco)
+
+acf(tonstssm, main = "ACF for the Exportation of soybean meal", data= agrosm)
+pacf(tonstssm, main = "ACF for the Exportation of soybean meal", data= agrosm)
+
+```
+* Finding the optimal lags
+```{r Finding the number of the lags}
+tonssb.bv <- cbind(tonstssb, price_soybeansts, hgdp_worldsb)
+colnames(tonssb.bv) <- cbind("Ton","Price", "GDP World")
+
+tonsco.bv <- cbind(tonstsco, price_cornts, hgdp_worldco)
+colnames(tonsco.bv) <- cbind("Ton","Price", "GDP World")
+
+tonssm.bv <- cbind(tonstssm, price_soybean_mealts, hgdp_worldsm)
+colnames(tonssm.bv) <- cbind("Ton","Price", "GDP World")
+```
+
+* LAG selection
+```{r LAG selection}
+lagselect1 <- VARselect(tonssb.bv, lag.max=10, type="const")
+lagselect1$selection
+
+
+lagselect2 <- VARselect(tonsco.bv, lag.max=10, type="const")
+lagselect2$selection
+
+
+lagselect3 <- VARselect(tonssm.bv, lag.max=10, type="const")
+lagselect3$selection
+```
+## Building VAR
+```{r Building VAR}
+ModelSoyBeans <- VAR(tonssb.bv, p=4, type="const", season=NULL, exog= NULL)
+summary(ModelSoyBeans)
+
+ModelCorn <- VAR(tonsco.bv, p=4, type="const", season=NULL, exog= NULL)
+summary(ModelCorn)
+
+ModelSoyBeanMeal <- VAR(tonssm.bv, p=4, type="const", season=NULL, exog= NULL)
+summary(ModelSoyBeanMeal)
+
+```
+### Diagnosing the VAR
+
+* Serial Correlation
+```{r Serial Correlation}
+Serial1 <- serial.test(ModelSoyBeans, lags.pt=12, type= "PT.asymptotic")
+Serial1
+
+Serial2 <- serial.test(ModelCorn, lags.pt=12, type= "PT.asymptotic")
+Serial2
+
+Serial3 <- serial.test(ModelSoyBeanMeal, lags.pt=12, type= "PT.asymptotic")
+Serial3
+```
+* Heteroscedasticity
+```{r Heteroscedasticity}
+Arch1 <- arch.test(ModelSoyBeans, lags.multi=12, multivariate.only=TRUE)
+Arch1
+
+Arch2 <- arch.test(ModelCorn, lags.multi=12, multivariate.only=TRUE)
+Arch2
+
+Arch3 <- arch.test(ModelSoyBeanMeal, lags.multi=12, multivariate.only=TRUE)
+Arch3
+```
+
+* Normal Distribution of the Residuals
+```{r Normal Distribution of the Residuals}
+Normal1 <- normality.test(ModelSoyBeans, multivariate.only=TRUE)
+Normal1
+
+Normal2 <- normality.test(ModelCorn, multivariate.only=TRUE)
+Normal2
+
+Normal3 <- normality.test(ModelSoyBeanMeal, multivariate.only=TRUE)
+Normal3
+```
+* Test for Structural Breaks in the Residuals
+```{r Test for Structural Breaks in the Residuals}
+Stability1 <- stability(ModelSoyBeans, type="OLS-CUSUM")
+plot(Stability1)
+
+Stability2 <- stability(ModelCorn, type="OLS-CUSUM")
+plot(Stability2)
+
+Stability3 <- stability(ModelSoyBeanMeal, type="OLS-CUSUM")
+plot(Stability3)
+```
+
+* Granger Causality
+```{r Granger Causality}
+Grangertonssb <- causality(ModelSoyBeans, cause="Ton") 
+
+Grangertonssb <- causality(ModelCorn, cause="Ton") 
+
+Grangertonssb <- causality(ModelSoyBeanMeal, cause="Ton") 
+```
+
+* Variance Decomposition
+```{r Variance Decomposition}
+
+FEVD1 <- fevd(ModelSoyBeans, n.ahead = 10)
+plot(FEVD1)
+
+FEVD2 <- fevd(ModelCorn, n.ahead = 10)
+plot(FEVD2)
+
+FEVD3 <- fevd(ModelSoyBeanMeal, n.ahead = 10)
+plot(FEVD3)
+```
+### VAR forecasting
+```{r VAR forecasting}
+
+forecast1 <- predict(ModelSoyBeans, n.ahead = 10, ci = 0.95)
+fanchart(forecast1, names = "Ton")
+
+forecast2 <- predict(ModelCorn, n.ahead = 10, ci = 0.95)
+fanchart(forecast2, names = "Ton")
+
+forecast3 <- predict(ModelSoyBeanMeal, n.ahead = 10, ci = 0.95)
+fanchart(forecast3, names = "Ton")
+```
