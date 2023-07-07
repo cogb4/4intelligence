@@ -1,6 +1,5 @@
 ---
 title: "Case 2 - 4intelligence"
-author: "Catarina Oliveira Guimarães Barcelos"
 date: "01/12/2020"
 output:
   pdf_document: default
